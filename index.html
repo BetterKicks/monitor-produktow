@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Produktów</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Strona powitalna -->
+    <div id="welcome-page" class="container mx-auto p-4">
+        <h1 class="text-2xl mb-4">Witaj w Monitorze Produktów!</h1>
+        <p>1. Zaloguj się lub zarejestruj.</p>
+        <p>2. Dodaj produkt, podając sklep, link i SKU.</p>
+        <p>3. Otrzymuj powiadomienia o zmianach.</p>
+        <button id="start-button" class="bg-blue-600 text-white px-4 py-2 rounded mt-4">Zacznij</button>
+    </div>
+
+    <!-- Strona logowania -->
+    <div id="login-page" class="hidden container mx-auto p-4">
+        <h1 class="text-2xl mb-4">Logowanie / Rejestracja</h1>
+        <input id="email-input" type="email" placeholder="E-mail" class="w-full p-2 mb-2 border">
+        <input id="password-input" type="password" placeholder="Hasło" class="w-full p-2 mb-2 border">
+        <button id="login-button" class="bg-blue-600 text-white px-2 py-1 rounded mr-2">Zaloguj</button>
+        <button id="register-button" class="bg-green-600 text-white px-2 py-1 rounded">Zarejestruj</button>
+        <p id="login-error" class="text-red-600 hidden">Błąd logowania</p>
+    </div>
+
+    <!-- Główna strona po zalogowaniu -->
+    <div id="main-page" class="hidden">
+        <header class="bg-blue-600 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl">Monitor Produktów</h1>
+                <div>
+                    <button id="dark-mode-toggle" class="text-white mr-2">🌙</button>
+                    <button id="logout-button" class="bg-white text-blue-600 px-2 py-1 rounded">Wyloguj</button>
+                </div>
+            </div>
+        </header>
+        <main class="container mx-auto p-4">
+            <div class="bg-white p-4 rounded shadow">
+                <h2 class="text-xl mb-2">Dodaj produkt</h2>
+                <select id="store-select" class="w-full p-2 mb-2 border">
+                    <option>Adidas</option>
+                    <option>Nike</option>
+                    <option>Answear</option>
+                    <option>Sportano</option>
+                    <option>BasketZone</option>
+                    <option>ButyJana</option>
+                    <option>Modivo</option>
+                    <option>On</option>
+                    <option>Sportofino</option>
+                    <option>Vitkac</option>
+                    <option>Prm</option>
+                    <option>New Balance</option>
+                    <option>Streestyle24</option>
+                    <option>eObuwie</option>
+                    <option>Miniramp</option>
+                    <option>Sh store</option>
+                    <option>cl20</option>
+                    <option>skstore</option>
+                    <option>streetcolors</option>
+                    <option>Zalando</option>
+                    <option>Adrenaline</option>
+                    <option>Top4running</option>
+                    <option>Runcolors</option>
+                    <option>TopBrand</option>
+                    <option>Adventure sports</option>
+                    <option>PeakStore</option>
+                    <option>Sewel</option>
+                </select>
+                <input id="product-link" type="text" placeholder="Wklej link do produktu" class="w-full p-2 mb-2 border">
+                <input id="product-sku" type="text" placeholder="Kod SKU (np. ABC123)" class="w-full p-2 mb-2 border">
+                <button id="add-product-button" class="bg-blue-600 text-white px-2 py-1 rounded">Dodaj</button>
+                <p id="add-error" class="text-red-600 hidden">Link nie pasuje do sklepu</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow mt-4">
+                <h2 class="text-xl mb-2">Monitorowane produkty</h2>
+                <input id="search-sku" type="text" placeholder="Wyszukaj po SKU lub linku" class="w-full p-2 mb-2 border">
+                <div id="products-list"></div>
+            </div>
+            <div id="admin-section" class="bg-white p-4 rounded shadow mt-4 hidden">
+                <h2 class="text-xl mb-2">Dodaj nowy sklep (Admin)</h2>
+                <input id="store-name" type="text" placeholder="Nazwa sklepu (np. Puma)" class="w-full p-2 mb-2 border">
+                <input id="store-domain" type="text" placeholder="Domena (np. puma.com)" class="w-full p-2 mb-2 border">
+                <input id="store-selector" type="text" placeholder="Selektor CSS dla rozmiarów (np. .size-option)" class="w-full p-2 mb-2 border">
+                <button id="add-store-button" class="bg-blue-600 text-white px-2 py-1 rounded">Dodaj sklep</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Wklej tutaj kod z firebase-config.txt (firebaseConfig)
+        const firebaseConfig = {
+  apiKey: "AIzaSyDW65u9sHYZiyiCAt0jM3tuWUO0OLNN3NQ",
+  authDomain: "monitorproduktow-d817d.firebaseapp.com",
+  projectId: "monitorproduktow-d817d",
+  storageBucket: "monitorproduktow-d817d.firebasestorage.app",
+  messagingSenderId: "126866311100",
+  appId: "1:126866311100:web:a5f126aa2f47d64aac8db9",
+  measurementId: "G-RV12HHD0KL"
+};
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Funkcje strony
+        const welcomePage = document.getElementById('welcome-page');
+        const loginPage = document.getElementById('login-page');
+        const mainPage = document.getElementById('main-page');
+        const startButton = document.getElementById('start-button');
+        const loginButton = document.getElementById('login-button');
+        const registerButton = document.getElementById('register-button');
+        const logoutButton = document.getElementById('logout-button');
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const loginError = document.getElementById('login-error');
+        const addProductButton = document.getElementById('add-product-button');
+        const productLink = document.getElementById('product-link');
+        const productSku = document.getElementById('product-sku');
+        const storeSelect = document.getElementById('store-select');
+        const addError = document.getElementById('add-error');
+        const productsList = document.getElementById('products-list');
+        const searchSku = document.getElementById('search-sku');
+        const adminSection = document.getElementById('admin-section');
+        const addStoreButton = document.getElementById('add-store-button');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        let isDarkMode = false;
+
+        startButton.addEventListener('click', () => {
+            welcomePage.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+        });
+
+        loginButton.addEventListener('click', () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            auth.signInWithEmailAndPassword(email, password).catch((error) => {
+                loginError.classList.remove('hidden');
+                loginError.textContent = 'Błąd logowania: ' + error.message;
+            });
+        });
+
+        registerButton.addEventListener('click', () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            auth.createUserWithEmailAndPassword(email, password).catch((error) => {
+                loginError.classList.remove('hidden');
+                loginError.textContent = 'Błąd rejestracji: ' + error.message;
+            });
+        });
+
+        logoutButton.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loginPage.classList.add('hidden');
+                mainPage.classList.remove('hidden');
+                loadProducts();
+                if (user.email === 'wozniakmichal04@gmail.com') { // Zastąp swoim e-mailem admina
+                    adminSection.classList.remove('hidden');
+                }
+            } else {
+                welcomePage.classList.remove('hidden');
+                mainPage.classList.add('hidden');
+            }
+        });
+
+        addProductButton.addEventListener('click', () => {
+            const link = productLink.value;
+            const sku = productSku.value;
+            const store = storeSelect.value;
+            const domain = link.split('/')[2];
+            if (!link.includes(store.toLowerCase())) {
+                addError.classList.remove('hidden');
+                return;
+            }
+            addError.classList.add('hidden');
+            db.collection('products').add({
+                userId: auth.currentUser.uid,
+                store: store,
+                link: link,
+                sku: sku,
+                sizes: [],
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            productLink.value = '';
+            productSku.value = '';
+        });
+
+        function loadProducts() {
+            db.collection('products')
+                .where('userId', '==', auth.currentUser.uid)
+                .onSnapshot((snapshot) => {
+                    productsList.innerHTML = '';
+                    const groupedBySku = {};
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        if (!groupedBySku[data.sku]) {
+                            groupedBySku[data.sku] = [];
+                        }
+                        groupedBySku[data.sku].push({ id: doc.id, ...data });
+                    });
+
+                    Object.keys(groupedBySku).forEach((sku) => {
+                        const div = document.createElement('div');
+                        div.className = 'bg-gray-100 p-2 mb-2';
+                        div.innerHTML = `<p><strong>SKU:</strong> ${sku}</p>`;
+                        groupedBySku[sku].forEach((product) => {
+                            div.innerHTML += `
+                                <p><strong>Sklep:</strong> ${product.store}</p>
+                                <p><strong>Link:</strong> <a href="${product.link}" class="text-blue-600">${product.link}</a></p>
+                                <p><strong>Rozmiary:</strong> ${product.sizes.join(', ') || 'Brak'}</p>
+                                <button class="bg-red-600 text-white px-2 py-1 rounded delete-btn" data-id="${product.id}">Usuń</button>
+                            `;
+                        });
+                        productsList.appendChild(div);
+                    });
+
+                    document.querySelectorAll('.delete-btn').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            db.collection('products').doc(btn.dataset.id).delete();
+                        });
+                    });
+                });
+        }
+
+        searchSku.addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            Array.from(productsList.children).forEach((div) => {
+                const sku = div.querySelector('p').textContent.toLowerCase();
+                if (sku.includes(search)) {
+                    div.classList.remove('hidden');
+                } else {
+                    div.classList.add('hidden');
+                }
+            });
+        });
+
+        addStoreButton.addEventListener('click', () => {
+            const name = document.getElementById('store-name').value;
+            const domain = document.getElementById('store-domain').value;
+            const selector = document.getElementById('store-selector').value;
+            const option = document.createElement('option');
+            option.text = name;
+            storeSelect.add(option);
+            document.getElementById('store-name').value = '';
+            document.getElementById('store-domain').value = '';
+            document.getElementById('store-selector').value = '';
+        });
+
+        darkModeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('bg-gray-900', isDarkMode);
+            document.body.classList.toggle('text-white', isDarkMode);
+            document.querySelectorAll('.bg-white').forEach((el) => {
+                el.classList.toggle('bg-gray-800', isDarkMode);
+                el.classList.toggle('text-white', isDarkMode);
+            });
+            document.querySelectorAll('.bg-gray-100').forEach((el) => {
+                el.classList.toggle('bg-gray-700', isDarkMode);
+            });
+            darkModeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+        });
+    </script>
+</body>
+</html>
